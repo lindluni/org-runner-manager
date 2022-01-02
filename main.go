@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -208,7 +209,7 @@ func (m *manager) verifyMaintainership() bool {
 	githubactions.Infof("Verifying %s is a maintainer of the %s/%s team", m.actor, m.org, m.team)
 	membership, resp, err := m.client.Teams.GetTeamMembershipBySlug(ctx, m.org, m.team, m.actor)
 	if err != nil {
-		if resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == 404 {
 			githubactions.Errorf("%s is not a member of the %s team", m.actor, m.team)
 			return false
 		}
@@ -227,7 +228,7 @@ func (m *manager) verifyTeamExists() bool {
 	githubactions.Infof("Verifying team %s/%s exists", m.org, m.team)
 	_, resp, err := m.client.Teams.GetTeamBySlug(ctx, m.org, m.team)
 	if err != nil {
-		if resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == 404 {
 			githubactions.Errorf("%s/%s does not exist", m.org, m.team)
 			return false
 		}
@@ -240,12 +241,11 @@ func (m *manager) verifyTeamExists() bool {
 
 func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 	githubactions.Infof("Searching for group ID for runner group %s", m.runnerGroup)
-	page := 1
+	opts := &github.ListOptions{
+		PerPage: 100,
+	}
 	for {
-		groups, resp, err := m.client.Actions.ListOrganizationRunnerGroups(context.Background(), m.org, &github.ListOptions{
-			Page:    page,
-			PerPage: 100,
-		})
+		groups, resp, err := m.client.Actions.ListOrganizationRunnerGroups(context.Background(), m.org, opts)
 		if err != nil {
 			githubactions.Fatalf("Unable to retrieve runner groups: %v", err)
 		}
@@ -258,7 +258,7 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 		if resp.NextPage == 0 {
 			break
 		}
-		page = resp.NextPage
+		opts.Page = resp.NextPage
 	}
 	return 0, false
 }
@@ -291,7 +291,7 @@ func (m *manager) retrieveRepoID(repoName string) int64 {
 	githubactions.Infof("Verifying repo %s exists", repoName)
 	repo, resp, err := m.client.Repositories.Get(ctx, m.org, repoName)
 	if err != nil {
-		if resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == 404 {
 			githubactions.Fatalf("Repo %s does not exist", repoName)
 		}
 		githubactions.Fatalf("Unable to get repository: %v", err)
@@ -301,14 +301,12 @@ func (m *manager) retrieveRepoID(repoName string) int64 {
 
 func (m *manager) retrieveRunnerGroupRunners() []string {
 	githubactions.Infof("Retrieving runners for group %s", m.runnerGroup)
-	ctx := context.Background()
-	page := 1
+	opts := &github.ListOptions{
+		PerPage: 100,
+	}
 	var groupRunners []string
 	for {
-		runners, resp, err := m.client.Actions.ListRunnerGroupRunners(ctx, m.org, m.runnerGroupID, &github.ListOptions{
-			Page:    page,
-			PerPage: 100,
-		})
+		runners, resp, err := m.client.Actions.ListRunnerGroupRunners(m.ctx, m.org, m.runnerGroupID, opts)
 		if err != nil {
 			githubactions.Fatalf("Unable to retrieve runners: %v", err)
 		}
@@ -318,21 +316,19 @@ func (m *manager) retrieveRunnerGroupRunners() []string {
 		if resp.NextPage == 0 {
 			break
 		}
-		page = resp.NextPage
+		opts.Page = resp.NextPage
 	}
 	return groupRunners
 }
 
 func (m *manager) retrieveRunnerGroupRepos() []string {
 	githubactions.Infof("Retrieving repos for runner group %s", m.runnerGroup)
-	ctx := context.Background()
-	page := 1
+	opts := &github.ListOptions{
+		PerPage: 100,
+	}
 	var groupRepos []string
 	for {
-		repos, resp, err := m.client.Actions.ListRepositoryAccessRunnerGroup(ctx, m.org, m.runnerGroupID, &github.ListOptions{
-			Page:    page,
-			PerPage: 100,
-		})
+		repos, resp, err := m.client.Actions.ListRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, opts)
 		if err != nil {
 			githubactions.Fatalf("Unable to retrieve repos: %v", err)
 		}
@@ -342,22 +338,38 @@ func (m *manager) retrieveRunnerGroupRepos() []string {
 		if resp.NextPage == 0 {
 			break
 		}
-		page = resp.NextPage
+		opts.Page = resp.NextPage
 	}
 	return groupRepos
 }
 
 func (m *manager) commentAndSucceed(message string) {
 	githubactions.Errorf("Sending message: %s", message)
-	m.client.PullRequests.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.PullRequestComment{
+	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &message,
 	})
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			githubactions.Errorf("Unable to send message, issue not found: %v", err)
+			return
+		}
+		githubactions.Errorf("Unable to send message: %v", err)
+		return
+	}
 }
 
 func (m *manager) commentAndFail(message string) {
 	githubactions.Errorf("Sending failure notification: %s", message)
-	m.client.PullRequests.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.PullRequestComment{
+	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &message,
 	})
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			githubactions.Errorf("Unable to send message, issue not found: %v", err)
+			return
+		}
+		githubactions.Errorf("Unable to send message: %v", err)
+		return
+	}
 	os.Exit(1)
 }
