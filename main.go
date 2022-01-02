@@ -44,9 +44,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token},
-	)
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 
@@ -185,8 +183,7 @@ func (m *manager) setRepos() {
 }
 
 func (m *manager) createRegistrationToken() *github.RegistrationToken {
-	ctx := context.Background()
-	token, _, err := m.client.Actions.CreateOrganizationRegistrationToken(ctx, m.org)
+	token, _, err := m.client.Actions.CreateOrganizationRegistrationToken(m.ctx, m.org)
 	if err != nil {
 		githubactions.Fatalf("Unable to create registration token: %v", err)
 	}
@@ -195,8 +192,7 @@ func (m *manager) createRegistrationToken() *github.RegistrationToken {
 }
 
 func (m *manager) createRemovalToken() *github.RemoveToken {
-	ctx := context.Background()
-	token, _, err := m.client.Actions.CreateOrganizationRemoveToken(ctx, m.org)
+	token, _, err := m.client.Actions.CreateOrganizationRemoveToken(m.ctx, m.org)
 	if err != nil {
 		githubactions.Fatalf("Unable to create removal token: %v", err)
 	}
@@ -205,9 +201,8 @@ func (m *manager) createRemovalToken() *github.RemoveToken {
 }
 
 func (m *manager) verifyMaintainership() bool {
-	ctx := context.Background()
 	githubactions.Infof("Verifying %s is a maintainer of the %s/%s team", m.actor, m.org, m.team)
-	membership, resp, err := m.client.Teams.GetTeamMembershipBySlug(ctx, m.org, m.team, m.actor)
+	membership, resp, err := m.client.Teams.GetTeamMembershipBySlug(m.ctx, m.org, m.team, m.actor)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Errorf("%s is not a member of the %s team", m.actor, m.team)
@@ -224,9 +219,8 @@ func (m *manager) verifyMaintainership() bool {
 }
 
 func (m *manager) verifyTeamExists() bool {
-	ctx := context.Background()
 	githubactions.Infof("Verifying team %s/%s exists", m.org, m.team)
-	_, resp, err := m.client.Teams.GetTeamBySlug(ctx, m.org, m.team)
+	_, resp, err := m.client.Teams.GetTeamBySlug(m.ctx, m.org, m.team)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Errorf("%s/%s does not exist", m.org, m.team)
@@ -245,7 +239,7 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 		PerPage: 100,
 	}
 	for {
-		groups, resp, err := m.client.Actions.ListOrganizationRunnerGroups(context.Background(), m.org, opts)
+		groups, resp, err := m.client.Actions.ListOrganizationRunnerGroups(m.ctx, m.org, opts)
 		if err != nil {
 			githubactions.Fatalf("Unable to retrieve runner groups: %v", err)
 		}
@@ -287,9 +281,8 @@ func trimRepoNames(repos []string) []string {
 }
 
 func (m *manager) retrieveRepoID(repoName string) int64 {
-	ctx := context.Background()
 	githubactions.Infof("Verifying repo %s exists", repoName)
-	repo, resp, err := m.client.Repositories.Get(ctx, m.org, repoName)
+	repo, resp, err := m.client.Repositories.Get(m.ctx, m.org, repoName)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Fatalf("Repo %s does not exist", repoName)
