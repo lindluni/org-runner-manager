@@ -209,7 +209,7 @@ func (m *manager) verifyMaintainership() bool {
 	githubactions.Infof("Verifying %s is a maintainer of the %s/%s team", m.actor, m.org, m.team)
 	membership, resp, err := m.client.Teams.GetTeamMembershipBySlug(ctx, m.org, m.team, m.actor)
 	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Errorf("%s is not a member of the %s team", m.actor, m.team)
 			return false
 		}
@@ -228,7 +228,7 @@ func (m *manager) verifyTeamExists() bool {
 	githubactions.Infof("Verifying team %s/%s exists", m.org, m.team)
 	_, resp, err := m.client.Teams.GetTeamBySlug(ctx, m.org, m.team)
 	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Errorf("%s/%s does not exist", m.org, m.team)
 			return false
 		}
@@ -291,7 +291,7 @@ func (m *manager) retrieveRepoID(repoName string) int64 {
 	githubactions.Infof("Verifying repo %s exists", repoName)
 	repo, resp, err := m.client.Repositories.Get(ctx, m.org, repoName)
 	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Fatalf("Repo %s does not exist", repoName)
 		}
 		githubactions.Fatalf("Unable to get repository: %v", err)
