@@ -65,16 +65,16 @@ func main() {
 		var found bool
 		manager.runnerGroupID, found = manager.retrieveRunnerGroupID()
 		if !found {
-			githubactions.Fatalf("Failed to retrieve runner group ID")
+			manager.commentAndFail("Failed to retrieve runner group ID")
 		}
 	}
 
 	if !manager.verifyTeamExists() {
-		githubactions.Fatalf("Unable to verify team %s exists", team)
+		manager.commentAndFail("Unable to verify team %s exists", team)
 	}
 
 	if !manager.verifyMaintainership() {
-		githubactions.Fatalf("Unable to verify you are a maintainer of this team")
+		manager.commentAndFail("Unable to verify you are a maintainer of this team")
 	}
 
 	githubactions.Infof("Executing action %s for %s/%s", action, manager.org, actor)
@@ -116,7 +116,7 @@ func (m *manager) createGroup() {
 		Visibility:               github.String("selected"),
 	})
 	if err != nil {
-		githubactions.Fatalf("Unable to create group: %v", err)
+		m.commentAndFail("Unable to create group: %v", err)
 	}
 	githubactions.Infof("Created group %s", group.GetName())
 }
@@ -124,7 +124,7 @@ func (m *manager) createGroup() {
 func (m *manager) deleteGroup() {
 	_, err := m.client.Actions.DeleteOrganizationRunnerGroup(m.ctx, m.org, m.runnerGroupID)
 	if err != nil {
-		githubactions.Fatalf("Unable to delete group: %v", err)
+		m.commentAndFail("Unable to delete group: %v", err)
 	}
 	githubactions.Infof("Deleted group %s", m.runnerGroup)
 }
@@ -137,7 +137,7 @@ func (m *manager) groupList() ([]string, []string) {
 
 func (m *manager) addRepos() {
 	repos := make(map[string]int64)
-	for _, repo := range parseRepos(m.body) {
+	for _, repo := range m.parseRepos() {
 		id := m.retrieveRepoID(repo)
 		repos[repo] = id
 	}
@@ -146,14 +146,14 @@ func (m *manager) addRepos() {
 		githubactions.Infof("Adding repo %s to group %s", name, m.runnerGroup)
 		_, err := m.client.Actions.AddRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, id)
 		if err != nil {
-			githubactions.Fatalf("Unable to add repo %d to group %s: %v", name, m.runnerGroup, err)
+			m.commentAndFail("Unable to add repo %d to group %s: %v", name, m.runnerGroup, err)
 		}
 	}
 }
 
 func (m *manager) removeRepos() {
 	repos := make(map[string]int64)
-	for _, repo := range parseRepos(m.body) {
+	for _, repo := range m.parseRepos() {
 		id := m.retrieveRepoID(repo)
 		repos[repo] = id
 	}
@@ -162,13 +162,13 @@ func (m *manager) removeRepos() {
 		githubactions.Infof("Removing repo %s from group %s", name, m.runnerGroup)
 		_, err := m.client.Actions.RemoveRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, id)
 		if err != nil {
-			githubactions.Fatalf("Unable to remove repo %s to group %s: %v", name, m.runnerGroup, err)
+			m.commentAndFail("Unable to remove repo %s to group %s: %v", name, m.runnerGroup, err)
 		}
 	}
 }
 
 func (m *manager) setRepos() {
-	repos := parseRepos(m.body)
+	repos := m.parseRepos()
 	var repoIDs []int64
 	for _, repo := range repos {
 		id := m.retrieveRepoID(repo)
@@ -178,14 +178,14 @@ func (m *manager) setRepos() {
 	githubactions.Infof("Replacing existing repos for group %s with new repo set: [%s]", m.runnerGroup, strings.Join(repos[:], ", "))
 	_, err := m.client.Actions.SetRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, github.SetRepoAccessRunnerGroupRequest{SelectedRepositoryIDs: repoIDs})
 	if err != nil {
-		githubactions.Fatalf("Unable to replace repos for group %s: %v", m.runnerGroup, err)
+		m.commentAndFail("Unable to replace repos for group %s: %v", m.runnerGroup, err)
 	}
 }
 
 func (m *manager) createRegistrationToken() *github.RegistrationToken {
 	token, _, err := m.client.Actions.CreateOrganizationRegistrationToken(m.ctx, m.org)
 	if err != nil {
-		githubactions.Fatalf("Unable to create registration token: %v", err)
+		m.commentAndFail("Unable to create registration token: %v", err)
 	}
 	githubactions.Infof("Created registration token")
 	return token
@@ -194,7 +194,7 @@ func (m *manager) createRegistrationToken() *github.RegistrationToken {
 func (m *manager) createRemovalToken() *github.RemoveToken {
 	token, _, err := m.client.Actions.CreateOrganizationRemoveToken(m.ctx, m.org)
 	if err != nil {
-		githubactions.Fatalf("Unable to create removal token: %v", err)
+		m.commentAndFail("Unable to create removal token: %v", err)
 	}
 	githubactions.Infof("Created removal token")
 	return token
@@ -241,7 +241,7 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 	for {
 		groups, resp, err := m.client.Actions.ListOrganizationRunnerGroups(m.ctx, m.org, opts)
 		if err != nil {
-			githubactions.Fatalf("Unable to retrieve runner groups: %v", err)
+			m.commentAndFail("Unable to retrieve runner groups: %v", err)
 		}
 		for _, group := range groups.RunnerGroups {
 			if group.GetName() == m.runnerGroup {
@@ -257,14 +257,14 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 	return 0, false
 }
 
-func parseRepos(body string) []string {
+func (m *manager) parseRepos() []string {
 	r := regexp.MustCompile("Repos:.+")
-	match := r.FindStringSubmatch(body)[0]
+	match := r.FindStringSubmatch(m.body)[0]
 	trimmedMatch := strings.TrimPrefix(match, "Repos:")
 	trimmedRepos := strings.Trim(trimmedMatch, "\t \r \n")
 	repoList := strings.Split(trimmedRepos, "\\n\\n")
 	if len(repoList) != 2 {
-		githubactions.Fatalf("Unable to parse repo list, must be in form: repo1,repo2,repo3")
+		m.commentAndFail("Unable to parse repo list, must be in form: repo1,repo2,repo3")
 	}
 	repos := strings.Split(repoList[1], ",")
 	names := trimRepoNames(repos)
@@ -285,9 +285,9 @@ func (m *manager) retrieveRepoID(repoName string) int64 {
 	repo, resp, err := m.client.Repositories.Get(m.ctx, m.org, repoName)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			githubactions.Fatalf("Repo %s does not exist", repoName)
+			m.commentAndFail("Repo %s does not exist", repoName)
 		}
-		githubactions.Fatalf("Unable to get repository: %v", err)
+		m.commentAndFail("Unable to get repository: %v", err)
 	}
 	return repo.GetID()
 }
@@ -301,7 +301,7 @@ func (m *manager) retrieveRunnerGroupRunners() []string {
 	for {
 		runners, resp, err := m.client.Actions.ListRunnerGroupRunners(m.ctx, m.org, m.runnerGroupID, opts)
 		if err != nil {
-			githubactions.Fatalf("Unable to retrieve runners: %v", err)
+			m.commentAndFail("Unable to retrieve runners: %v", err)
 		}
 		for _, runner := range runners.Runners {
 			groupRunners = append(groupRunners, runner.GetName())
@@ -323,7 +323,7 @@ func (m *manager) retrieveRunnerGroupRepos() []string {
 	for {
 		repos, resp, err := m.client.Actions.ListRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, opts)
 		if err != nil {
-			githubactions.Fatalf("Unable to retrieve repos: %v", err)
+			m.commentAndFail("Unable to retrieve repos: %v", err)
 		}
 		for _, repo := range repos.Repositories {
 			groupRepos = append(groupRepos, repo.GetName())
@@ -336,10 +336,11 @@ func (m *manager) retrieveRunnerGroupRepos() []string {
 	return groupRepos
 }
 
-func (m *manager) commentAndSucceed(message string) {
+func (m *manager) commentAndSucceed(message string, args ...interface{}) {
+	formattedMessage := fmt.Sprintf(message, args...)
 	githubactions.Errorf("Sending message: %s", message)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
-		Body: &message,
+		Body: &formattedMessage,
 	})
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -351,10 +352,11 @@ func (m *manager) commentAndSucceed(message string) {
 	}
 }
 
-func (m *manager) commentAndFail(message string) {
+func (m *manager) commentAndFail(message string, args ...interface{}) {
+	formattedMessage := fmt.Sprintf(message, args...)
 	githubactions.Errorf("Sending failure notification: %s", message)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
-		Body: &message,
+		Body: &formattedMessage,
 	})
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
