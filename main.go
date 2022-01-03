@@ -18,6 +18,7 @@ type manager struct {
 	ctx    context.Context
 	client *github.Client
 
+	action        string
 	actor         string
 	body          string
 	issueNumber   int
@@ -50,13 +51,17 @@ func main() {
 		ctx:    ctx,
 		client: client,
 
+		action:      action,
 		actor:       actor,
 		body:        body,
 		issueNumber: issueNumber,
 		org:         org,
 		repo:        repo,
 	}
-	manager.team = manager.parseTeam()
+	manager.team, err = manager.retrieveTeam()
+	if err != nil {
+		githubactions.Fatalf("Failed to retrieve team: %v", err)
+	}
 	manager.runnerGroup = fmt.Sprintf("ghm-%s", manager.team)
 
 	if !manager.verifyTeamExists() {
@@ -265,25 +270,40 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 }
 
 func (m *manager) parseRepos() []string {
-	r := regexp.MustCompile("Repos.+")
+	r := regexp.MustCompile("Repos.+[A-Za-z0-9_.-]")
 	match := r.FindStringSubmatch(m.body)[0]
-	trimmedMatch := strings.TrimPrefix(match, "Repos")
-	trimmedRepos := strings.Trim(trimmedMatch, "\\t \\r \\n \"")
-	repoList := strings.Split(trimmedRepos, "\\n\\n")
-	if len(repoList) != 2 {
-		m.commentAndFail("Unable to parse repo list, must be in form: repo1,repo2,repo3")
+	match = strings.TrimPrefix(match, "Repos")
+	match = strings.Trim(match, "\\t \\r \\n")
+	repos := strings.Split(match, ",")
+	repos = trimRepoNames(repos)
+	return repos
+}
+
+func (m *manager) retrieveTeam() (string, error) {
+	switch m.action {
+	case "group-create", "group-delete", "group-list", "token-register", "token-remove":
+		return m.parseTeam(), nil
+	case "repos-add", "repos-remove":
+		return m.parseTeamWithRepos(), nil
+	default:
+		return "", fmt.Errorf("unable to parse team from body")
 	}
-	repos := strings.Split(repoList[1], ",")
-	names := trimRepoNames(repos)
-	return names
 }
 
 func (m *manager) parseTeam() string {
-	r := regexp.MustCompile("Team.+")
+	r := regexp.MustCompile("Team.+[A-Za-z0-9_.-]")
 	match := r.FindStringSubmatch(m.body)[0]
-	trimmedMatch := strings.TrimPrefix(match, "Team")
-	trimmedTeam := strings.Trim(trimmedMatch, "\\t \\r \\n \"")
-	return trimmedTeam
+	match = strings.TrimPrefix(match, "Team")
+	match = strings.Trim(match, "\\t \\r \\n")
+	return match
+}
+
+func (m *manager) parseTeamWithRepos() string {
+	r := regexp.MustCompile("Team.+###")
+	match := r.FindStringSubmatch(m.body)[0]
+	match = strings.TrimPrefix(match, "Team")
+	match = strings.Trim(match, "\\t \\r \\n #")
+	return match
 }
 
 func trimRepoNames(repos []string) []string {
@@ -351,19 +371,19 @@ func (m *manager) retrieveRunnerGroupRepos() []string {
 	return groupRepos
 }
 
-func (m *manager) verifyRepoAssignedToTeam(repo string) {
-	githubactions.Infof("Verifying repo %s is assigned to team %s", repo, m.team)
+func (m *manager) verifyRepoAssignedToTeam(name string) {
+	githubactions.Infof("Verifying repo %s is assigned to team %s", name, m.team)
 	opts := &github.ListOptions{
 		PerPage: 100,
 	}
 	for {
-		repos, resp, err := m.client.Teams.ListTeamReposBySlug(m.ctx, m.org, repo, opts)
+		repos, resp, err := m.client.Teams.ListTeamReposBySlug(m.ctx, m.org, m.team, opts)
 		if err != nil {
 			m.commentAndFail("Unable to retrieve repos: %v", err)
 		}
 		for _, repo := range repos {
-			if repo.GetName() == m.repo {
-				githubactions.Infof("Repo %s is assigned to team %s", m.repo, m.team)
+			if repo.GetName() == name {
+				githubactions.Infof("Repo %s is assigned to team %s", name, m.team)
 				return
 			}
 		}
@@ -372,7 +392,7 @@ func (m *manager) verifyRepoAssignedToTeam(repo string) {
 		}
 		opts.Page = resp.NextPage
 	}
-	m.commentAndFail("Repo %s is not assigned to team %s", m.repo, m.team)
+	m.commentAndFail("Repo %s is not assigned to team %s", name, m.team)
 }
 
 func generateList(repos, runners []string) string {
