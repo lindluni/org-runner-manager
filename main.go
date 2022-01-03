@@ -18,25 +18,27 @@ type manager struct {
 	ctx    context.Context
 	client *github.Client
 
-	action        string
-	actor         string
-	body          string
-	issueNumber   int
-	org           string
-	repo          string
-	runnerGroup   string
-	runnerGroupID int64
-	team          string
+	action         string
+	actor          string
+	authorizedTeam string
+	body           string
+	issueNumber    int
+	org            string
+	repo           string
+	runnerGroup    string
+	runnerGroupID  int64
+	team           string
 }
 
 func main() {
-	token := githubactions.GetInput("token")
 	action := githubactions.GetInput("action")
-	org := githubactions.GetInput("org")
 	actor := githubactions.GetInput("actor")
+	authorizedTeam := githubactions.GetInput("authorized_team")
 	body := githubactions.GetInput("body")
 	body = strings.Replace(body, "\r", "", -1)
+	org := githubactions.GetInput("org")
 	repo := githubactions.GetInput("repo")
+	token := githubactions.GetInput("token")
 	issueNumber, err := strconv.Atoi(githubactions.GetInput("issue_number"))
 	if err != nil {
 		githubactions.Fatalf("Failed to parse issue number: %v", err)
@@ -51,18 +53,23 @@ func main() {
 		ctx:    ctx,
 		client: client,
 
-		action:      action,
-		actor:       actor,
-		body:        body,
-		issueNumber: issueNumber,
-		org:         org,
-		repo:        repo,
+		action:         action,
+		actor:          actor,
+		authorizedTeam: authorizedTeam,
+		body:           body,
+		issueNumber:    issueNumber,
+		org:            org,
+		repo:           repo,
 	}
 	manager.team, err = manager.retrieveTeam()
 	if err != nil {
 		githubactions.Fatalf("Failed to retrieve team: %v", err)
 	}
 	manager.runnerGroup = fmt.Sprintf("ghm-%s", manager.team)
+
+	if !manager.verifyAuthorization() {
+		githubactions.Fatalf("Authorization failed, user is not authorized to perform this actions")
+	}
 
 	if !manager.verifyTeamExists() {
 		manager.commentAndFail("Unable to verify team %s exists", manager.team)
@@ -210,6 +217,29 @@ func (m *manager) createRemovalToken() *github.RemoveToken {
 	}
 	githubactions.Infof("Created removal token")
 	return token
+}
+
+func (m *manager) verifyAuthorization() bool {
+	githubactions.Infof("Verifying user is authorized to perform this action")
+	opts := github.TeamListTeamMembersOptions{
+		ListOptions: github.ListOptions{PerPage: 100},
+	}
+	for {
+		members, resp, err := m.client.Teams.ListTeamMembersBySlug(m.ctx, m.org, m.authorizedTeam, &opts)
+		if err != nil {
+			m.commentAndFail("Unable to list team members: %v", err)
+		}
+		for _, member := range members {
+			if member.GetLogin() == m.actor {
+				return true
+			}
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return false
 }
 
 func (m *manager) verifyMaintainership() bool {

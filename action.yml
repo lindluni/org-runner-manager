@@ -10,6 +10,9 @@ inputs:
     description: GitHub token with admin rights
     required: true
     default: ${{ github.actor }}
+  authorized_team:
+    description: The GitHub team slug that authorizes users to use this functionality
+    required: true
   body:
     description: The body of the newly created issue
     required: true
