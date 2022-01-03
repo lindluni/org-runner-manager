@@ -1,0 +1,16 @@
+name: Delete Runner Group
+on:
+  issues:
+    types: [ opened, edited ]
+jobs:
+  create:
+    if: ${{ contains(github.event.issue.title, 'Delete Organization Runner Group') }}
+    name: Delete Runner Group
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: lindluni/org-runner-manager@main
+        with:
+          action: group-delete
+          repo: org-runner-manager-test
+          token: ${{ secrets.TOKEN }}

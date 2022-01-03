@@ -1,16 +1,16 @@
-name: List Runner Group Contents
+name: Create Runner Group
 on:
   issues:
     types: [ opened, edited ]
 jobs:
   create:
-    if: ${{ contains(github.event.issue.title, 'List Organization Runner Group Contents') }}
-    name: List Runner Group Contents
+    if: ${{ contains(github.event.issue.title, 'Create Organization Runner Group') }}
+    name: Create Runner Group
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: lindluni/org-runner-manager@main
         with:
-          action: group-list
+          action: group-create
           repo: org-runner-manager-test
           token: ${{ secrets.TOKEN }}

@@ -1,17 +1,17 @@
-name: Organization Runner Group - List Runner Group Contents
-description: Request to list repos and runners assigned to an existing organization runner group
-title: "Do Not Edit Title: List Organization Runner Group Contents"
+name: Organization Runner Group - Create New Group
+description: Request to create a new organization runner group
+title: "Do Not Edit Title: Create Organization Runner Group"
 labels: [ user-created ]
 body:
   - type: markdown
     attributes:
       value: |
-        **Please read before continuing**: This issue form is to request to list repos and runners assigned to an existing organization runner group.
+        **Please read before continuing**: This issue form is to request to create a new organization runner group.
 
         **All of the fields in this form are required.** You must provide the following information:
         - The slug of a GitHub team for which you are the maintainer of. This is not the same as your team name, you can navigate to the teams page and copy and paste the team name from the URL (this is the slug). For example, if your team name is `DevOps Team` then the slug is `devops-team` and can be copy and pasted from the teams page URL.
 
-        Once you submit this form, an existing organization runner group will have all repos and runners assigned to the runner group listed matching the name of the GitHub team prepended by the `ghm` prefix which identifies the runner group as being managed via automation. For example, if your GitHub team is named `DevOps Team` then the new organization runner group will be named `ghm-devops-team`.
+        Once you submit this form, new organization runner group will be created matching the name of the GitHub team prepended by the `ghm` prefix which identifies the runner group as being managed via automation. For example, if your GitHub team is named `DevOps Team` then the new organization runner group will be named `ghm-devops-team`.
   - type: checkboxes
     id: acknowledge
     attributes:

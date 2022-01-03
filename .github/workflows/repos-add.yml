@@ -1,16 +1,16 @@
-name: List Runner Group Contents
+name: Add Repos to Runner Group
 on:
   issues:
     types: [ opened, edited ]
 jobs:
   create:
-    if: ${{ contains(github.event.issue.title, 'List Organization Runner Group Contents') }}
-    name: List Runner Group Contents
+    if: ${{ contains(github.event.issue.title, 'Add Repos to Organization Runner Group') }}
+    name: Add Repos to Runner Group
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: lindluni/org-runner-manager@main
         with:
-          action: group-list
+          action: repos-add
           repo: org-runner-manager-test
           token: ${{ secrets.TOKEN }}

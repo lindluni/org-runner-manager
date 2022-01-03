@@ -1,0 +1,31 @@
+name: Organization Runner Group - Delete Existing Group
+description: Request to delete an existing organization runner group
+title: "Do Not Edit Title: Delete Organization Runner Group"
+labels: [ user-created ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please read before continuing**: This issue form is to request to delete an existing organization runner group.
+
+        **All of the fields in this form are required.** You must provide the following information:
+        - The slug of a GitHub team for which you are the maintainer of. This is not the same as your team name, you can navigate to the teams page and copy and paste the team name from the URL (this is the slug). For example, if your team name is `DevOps Team` then the slug is `devops-team` and can be copy and pasted from the teams page URL.
+
+        Once you submit this form, an existing organization runner group will be deleted matching the name of the GitHub team prepended by the `ghm` prefix which identifies the runner group as being managed via automation. For example, if your GitHub team is named `DevOps Team` then the new organization runner group will be named `ghm-devops-team`.
+  - type: checkboxes
+    id: acknowledge
+    attributes:
+      label: Acknowledge Instructions
+      description: Please acknowledge that you have read the above instructions
+      options:
+        - label: |
+            I acknowledge that I have read the above instructions
+          required: true
+  - type: input
+    id: teamslug
+    attributes:
+      label: Team
+      description: The canonical team slug for the GitHub team for which you are the maintainer of.
+      placeholder: devops-team
+    validations:
+      required: true
