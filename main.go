@@ -274,6 +274,7 @@ func (m *manager) parseRepos() []string {
 }
 
 func (m *manager) parseTeam() string {
+	fmt.Println(m.body)
 	r := regexp.MustCompile("Team.+")
 	match := r.FindStringSubmatch(m.body)[0]
 	trimmedMatch := strings.TrimPrefix(match, "Team:")
