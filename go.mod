@@ -3,7 +3,6 @@ module department-of-veterans-affairs/github-support/actions-runner-manager
 go 1.17
 
 require (
-	github.com/davecgh/go-spew v1.1.0
 	github.com/google/go-github/v41 v41.0.0
 	github.com/sethvargo/go-githubactions v0.5.1
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8

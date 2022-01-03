@@ -419,7 +419,7 @@ func generateList(repos, runners []string) string {
 
 func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
-	githubactions.Errorf("Sending message: %s", formattedMessage)
+	githubactions.Infof("Sending message: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
 	})
@@ -435,7 +435,7 @@ func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 
 func (m *manager) commentAndFail(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
-	githubactions.Errorf("Sending failure notification: %s", formattedMessage)
+	githubactions.Warningf("Sending failure notification: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
 	})
