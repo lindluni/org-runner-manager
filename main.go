@@ -34,7 +34,6 @@ func main() {
 	action := githubactions.GetInput("action")
 	org := githubactions.GetInput("org")
 	actor := githubactions.GetInput("actor")
-	team := githubactions.GetInput("team")
 	body := githubactions.GetInput("body")
 	body = strings.Replace(body, "\r", "", -1)
 	repo := githubactions.GetInput("repo")
@@ -57,8 +56,16 @@ func main() {
 		issueNumber: issueNumber,
 		org:         org,
 		repo:        repo,
-		runnerGroup: fmt.Sprintf("ghm-%s", team),
-		team:        team,
+	}
+	manager.team = manager.parseTeam()
+	manager.runnerGroup = fmt.Sprintf("ghm-%s", manager.team)
+
+	if !manager.verifyTeamExists() {
+		manager.commentAndFail("Unable to verify team %s exists", manager.team)
+	}
+
+	if !manager.verifyMaintainership() {
+		manager.commentAndFail("Unable to verify you are a maintainer of this team")
 	}
 
 	if action != "group-create" {
@@ -67,14 +74,6 @@ func main() {
 		if !found {
 			manager.commentAndFail("Failed to retrieve runner group ID")
 		}
-	}
-
-	if !manager.verifyTeamExists() {
-		manager.commentAndFail("Unable to verify team %s exists", team)
-	}
-
-	if !manager.verifyMaintainership() {
-		manager.commentAndFail("Unable to verify you are a maintainer of this team")
 	}
 
 	githubactions.Infof("Executing action %s for %s/%s", action, manager.org, actor)
@@ -138,6 +137,7 @@ func (m *manager) groupList() ([]string, []string) {
 func (m *manager) addRepos() {
 	repos := make(map[string]int64)
 	for _, repo := range m.parseRepos() {
+		m.verifyRepoAssignedToTeam(repo)
 		id := m.retrieveRepoID(repo)
 		repos[repo] = id
 	}
@@ -154,6 +154,7 @@ func (m *manager) addRepos() {
 func (m *manager) removeRepos() {
 	repos := make(map[string]int64)
 	for _, repo := range m.parseRepos() {
+		m.verifyRepoAssignedToTeam(repo)
 		id := m.retrieveRepoID(repo)
 		repos[repo] = id
 	}
@@ -171,6 +172,7 @@ func (m *manager) setRepos() {
 	repos := m.parseRepos()
 	var repoIDs []int64
 	for _, repo := range repos {
+		m.verifyRepoAssignedToTeam(repo)
 		id := m.retrieveRepoID(repo)
 		repoIDs = append(repoIDs, id)
 	}
@@ -271,6 +273,14 @@ func (m *manager) parseRepos() []string {
 	return names
 }
 
+func (m *manager) parseTeam() string {
+	r := regexp.MustCompile("Team:.+")
+	match := r.FindStringSubmatch(m.body)[0]
+	trimmedMatch := strings.TrimPrefix(match, "Team:")
+	trimmedTeam := strings.Trim(trimmedMatch, "\t \r \n")
+	return trimmedTeam
+}
+
 func trimRepoNames(repos []string) []string {
 	var trimmedRepos []string
 	for _, repo := range repos {
@@ -334,6 +344,30 @@ func (m *manager) retrieveRunnerGroupRepos() []string {
 		opts.Page = resp.NextPage
 	}
 	return groupRepos
+}
+
+func (m *manager) verifyRepoAssignedToTeam(repo string) {
+	githubactions.Infof("Verifying repo %s is assigned to team %s", repo, m.team)
+	opts := &github.ListOptions{
+		PerPage: 100,
+	}
+	for {
+		repos, resp, err := m.client.Teams.ListTeamReposBySlug(m.ctx, m.org, repo, opts)
+		if err != nil {
+			m.commentAndFail("Unable to retrieve repos: %v", err)
+		}
+		for _, repo := range repos {
+			if repo.GetName() == m.repo {
+				githubactions.Infof("Repo %s is assigned to team %s", m.repo, m.team)
+				return
+			}
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	m.commentAndFail("Repo %s is not assigned to team %s", m.repo, m.team)
 }
 
 func (m *manager) commentAndSucceed(message string, args ...interface{}) {
