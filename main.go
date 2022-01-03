@@ -106,7 +106,7 @@ func main() {
 	case "repos-set":
 		githubactions.Infof("Setting repos in runner group %s", manager.runnerGroup)
 		manager.setRepos()
-		manager.commentAndSucceed("Replaces repos in runner group %s", manager.runnerGroup)
+		manager.commentAndSucceed("Replaced repos in runner group %s", manager.runnerGroup)
 	case "token-register":
 		githubactions.Infof("Creating registration token")
 		token := manager.createRegistrationToken()
