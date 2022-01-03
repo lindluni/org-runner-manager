@@ -273,7 +273,9 @@ func (m *manager) verifyTeamExists() bool {
 		githubactions.Errorf("Unable to get team: %v", err)
 		return false
 	}
-	if team.GetPrivacy() != "closed" {
+	githubactions.Infof("Verifying team %s/%s's privacy is set to secret", m.org, m.team)
+	fmt.Println(team.GetPrivacy())
+	if team.GetPrivacy() != "secret" {
 		m.commentAndFail("Team %s/%s is not private", m.org, m.team)
 	}
 	githubactions.Infof("Team %s/%s exists", m.org, m.team)
