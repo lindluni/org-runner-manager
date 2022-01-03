@@ -1,11 +1,11 @@
-name: Create Runner Group
+name: Create Registration Token
 on:
   issues:
     types: [ opened, edited ]
 jobs:
   token-register:
     if: ${{ contains(github.event.issue.title, 'Create Organization Runner Registration Token') }}
-    name: Create Runner Group
+    name: Create Registration Token
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
