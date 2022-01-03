@@ -260,7 +260,7 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 }
 
 func (m *manager) parseRepos() []string {
-	r := regexp.MustCompile("Repos:.+")
+	r := regexp.MustCompile("Repos.+")
 	match := r.FindStringSubmatch(m.body)[0]
 	trimmedMatch := strings.TrimPrefix(match, "Repos:")
 	trimmedRepos := strings.Trim(trimmedMatch, "\t \r \n")
@@ -274,7 +274,7 @@ func (m *manager) parseRepos() []string {
 }
 
 func (m *manager) parseTeam() string {
-	r := regexp.MustCompile("Team:.+")
+	r := regexp.MustCompile("Team.+")
 	match := r.FindStringSubmatch(m.body)[0]
 	trimmedMatch := strings.TrimPrefix(match, "Team:")
 	trimmedTeam := strings.Trim(trimmedMatch, "\t \r \n")
