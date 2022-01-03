@@ -3,7 +3,7 @@ on:
   issues:
     types: [ opened, edited ]
 jobs:
-  create:
+  list:
     if: ${{ contains(github.event.issue.title, 'List Organization Runner Group Contents') }}
     name: List Runner Group Contents
     runs-on: ubuntu-latest

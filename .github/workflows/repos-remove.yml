@@ -1,16 +1,16 @@
-name: Add Repos to Runner Group
+name: Remove Repos from Runner Group
 on:
   issues:
     types: [ opened, edited ]
 jobs:
-  add:
-    if: ${{ contains(github.event.issue.title, 'Add Repos to Organization Runner Group') }}
-    name: Add Repos to Runner Group
+  remove:
+    if: ${{ contains(github.event.issue.title, 'Remove Repos from an Organization Runner Group') }}
+    name: Remove Repos from Runner Group
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: lindluni/org-runner-manager@main
         with:
-          action: repos-add
+          action: repos-remove
           repo: org-runner-manager-test
           token: ${{ secrets.TOKEN }}
