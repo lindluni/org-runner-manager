@@ -465,8 +465,8 @@ func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 			return
 		}
 		githubactions.Errorf("Unable to send message: %v", err)
-		return
 	}
+	m.closeIssue()
 }
 
 func (m *manager) commentAndFail(message string, args ...interface{}) {
@@ -483,4 +483,14 @@ func (m *manager) commentAndFail(message string, args ...interface{}) {
 		githubactions.Errorf("Unable to send message: %v", err)
 	}
 	os.Exit(1)
+}
+
+func (m *manager) closeIssue() {
+	githubactions.Infof("Closing issue %d", m.issueNumber)
+	_, _, err := m.client.Issues.Edit(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueRequest{
+		State: github.String("closed"),
+	})
+	if err != nil {
+		githubactions.Errorf("Unable to close issue: %v", err)
+	}
 }
