@@ -1,0 +1,16 @@
+name: Replace Repos for Runner Group
+on:
+  issues:
+    types: [ opened, edited ]
+jobs:
+  set:
+    if: ${{ contains(github.event.issue.title, 'Replace All Repos in Organization Runner Group') }}
+    name: Replace Repos for Runner Group
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: lindluni/org-runner-manager@main
+        with:
+          action: repos-set
+          repo: org-runner-manager-test
+          token: ${{ secrets.TOKEN }}
