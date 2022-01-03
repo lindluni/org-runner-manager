@@ -283,7 +283,7 @@ func (m *manager) retrieveTeam() (string, error) {
 	switch m.action {
 	case "group-create", "group-delete", "group-list", "token-register", "token-remove":
 		return m.parseTeam(), nil
-	case "repos-add", "repos-remove":
+	case "repos-add", "repos-remove", "repos-set":
 		return m.parseTeamWithRepos(), nil
 	default:
 		return "", fmt.Errorf("unable to parse team from body")
