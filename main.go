@@ -477,7 +477,8 @@ func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 
 func (m *manager) commentAndFail(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
-	githubactions.Warningf("Sending failure notification: %s\n\n[View Failure Log Here](https://github.com/%s/%s/actions/runs/%d", formattedMessage, m.org, m.repo, m.workflowRunID)
+	formattedMessage = formattedMessage + fmt.Sprintf("\n\n[View Failure Log Here](https://github.com/%s/%s/actions/runs/%d)", m.org, m.repo, m.workflowRunID)
+	githubactions.Warningf("Sending failure notification: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
 	})
