@@ -32,6 +32,10 @@ inputs:
     description: GitHub token with admin rights
     required: true
     default: ${{ github.token }}
+  workflow_run_id:
+    description: The unique workflow run ID assigned by GitHub Actions
+    required: true
+    default: ${{ github.run_id }}
 runs:
   using: docker
   image: docker://ghcr.io/lindluni/org-runner-manager:latest

@@ -30,6 +30,7 @@ type manager struct {
 	runnerGroup    string
 	runnerGroupID  int64
 	team           string
+	workflowRunID  int64
 }
 
 func main() {
@@ -44,6 +45,10 @@ func main() {
 	issueNumber, err := strconv.Atoi(githubactions.GetInput("issue_number"))
 	if err != nil {
 		githubactions.Fatalf("Failed to parse issue number: %v", err)
+	}
+	workflowRunID, err := strconv.Atoi(githubactions.GetInput("workflow_run_id"))
+	if err != nil {
+		githubactions.Fatalf("Failed to parse workflow run ID: %v", err)
 	}
 
 	ctx := context.Background()
@@ -62,6 +67,7 @@ func main() {
 		issueNumber:    issueNumber,
 		org:            org,
 		repo:           repo,
+		workflowRunID:  int64(workflowRunID),
 	}
 	manager.team, err = manager.retrieveTeam()
 	if err != nil {
@@ -471,7 +477,7 @@ func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 
 func (m *manager) commentAndFail(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
-	githubactions.Warningf("Sending failure notification: %s", formattedMessage)
+	githubactions.Warningf("Sending failure notification: %s\n\n[View Failure Log Here](https://github.com/%s/%s/actions/runs/%d", formattedMessage, m.org, m.repo, m.workflowRunID)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
 	})
