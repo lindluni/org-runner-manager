@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-github/v41/github"
 	"github.com/sethvargo/go-githubactions"
 	"golang.org/x/oauth2"
@@ -81,30 +80,36 @@ func main() {
 	case "group-create":
 		githubactions.Infof("Creating runner group %s", manager.runnerGroup)
 		manager.createGroup()
+		manager.commentAndSucceed("Created runner group %s", manager.runnerGroup)
 	case "group-delete":
 		githubactions.Infof("Deleting runner group %s", manager.runnerGroup)
 		manager.deleteGroup()
+		manager.commentAndSucceed("Deleted runner group %s", manager.runnerGroup)
 	case "group-list":
 		githubactions.Infof("Listing runner group contents for %s", manager.runnerGroup)
 		repos, runners := manager.groupList()
-		spew.Dump(repos, runners)
+		list := generateList(repos, runners)
+		manager.commentAndSucceed("The following repos and runners are assigned to the runner group %s:\n\n%s", manager.runnerGroup, list)
 	case "repos-add":
 		githubactions.Infof("Adding repos to runner group %s", manager.runnerGroup)
 		manager.addRepos()
+		manager.commentAndSucceed("Added repos to runner group %s", manager.runnerGroup)
 	case "repos-remove":
 		githubactions.Infof("Removing repos from runner group %s", manager.runnerGroup)
 		manager.removeRepos()
+		manager.commentAndSucceed("Removed repos from runner group %s", manager.runnerGroup)
 	case "repos-set":
 		githubactions.Infof("Setting repos in runner group %s", manager.runnerGroup)
 		manager.setRepos()
+		manager.commentAndSucceed("Replaces repos in runner group %s", manager.runnerGroup)
 	case "token-register":
 		githubactions.Infof("Creating registration token")
 		token := manager.createRegistrationToken()
-		spew.Dump(token)
+		manager.commentAndSucceed("Created registration token\n\nToken: %s\nExpiration: %s", token.GetToken(), token.GetExpiresAt().String())
 	case "token-remove":
 		githubactions.Infof("Creating removal token")
 		token := manager.createRemovalToken()
-		spew.Dump(token)
+		manager.commentAndSucceed("Created removal token\n\nToken: %s\nExpiration: %s", token.GetToken(), token.GetExpiresAt().String())
 	}
 }
 
@@ -262,8 +267,8 @@ func (m *manager) retrieveRunnerGroupID() (int64, bool) {
 func (m *manager) parseRepos() []string {
 	r := regexp.MustCompile("Repos.+")
 	match := r.FindStringSubmatch(m.body)[0]
-	trimmedMatch := strings.TrimPrefix(match, "Repos:")
-	trimmedRepos := strings.Trim(trimmedMatch, "\t \r \n")
+	trimmedMatch := strings.TrimPrefix(match, "Repos")
+	trimmedRepos := strings.Trim(trimmedMatch, "\\t \\r \\n \"")
 	repoList := strings.Split(trimmedRepos, "\\n\\n")
 	if len(repoList) != 2 {
 		m.commentAndFail("Unable to parse repo list, must be in form: repo1,repo2,repo3")
@@ -274,11 +279,10 @@ func (m *manager) parseRepos() []string {
 }
 
 func (m *manager) parseTeam() string {
-	fmt.Println(m.body)
 	r := regexp.MustCompile("Team.+")
 	match := r.FindStringSubmatch(m.body)[0]
-	trimmedMatch := strings.TrimPrefix(match, "Team:")
-	trimmedTeam := strings.Trim(trimmedMatch, "\t \r \n")
+	trimmedMatch := strings.TrimPrefix(match, "Team")
+	trimmedTeam := strings.Trim(trimmedMatch, "\\t \\r \\n \"")
 	return trimmedTeam
 }
 
@@ -371,9 +375,22 @@ func (m *manager) verifyRepoAssignedToTeam(repo string) {
 	m.commentAndFail("Repo %s is not assigned to team %s", m.repo, m.team)
 }
 
+func generateList(repos, runners []string) string {
+	builder := "```Repos:\n"
+	for _, repo := range repos {
+		builder += fmt.Sprintf("- %s\n", repo)
+	}
+	builder += "\n\nRunners:\n"
+	for _, runner := range runners {
+		builder += fmt.Sprintf("- %s\n", runner)
+	}
+	builder += "```"
+	return builder
+}
+
 func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
-	githubactions.Errorf("Sending message: %s", message)
+	githubactions.Errorf("Sending message: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
 	})
@@ -389,17 +406,16 @@ func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 
 func (m *manager) commentAndFail(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
-	githubactions.Errorf("Sending failure notification: %s", message)
+	githubactions.Errorf("Sending failure notification: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
 	})
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Errorf("Unable to send message, issue not found: %v", err)
-			return
+			os.Exit(1)
 		}
 		githubactions.Errorf("Unable to send message: %v", err)
-		return
 	}
 	os.Exit(1)
 }
