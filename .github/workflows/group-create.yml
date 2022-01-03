@@ -12,5 +12,6 @@ jobs:
       - uses: lindluni/org-runner-manager@main
         with:
           action: group-create
+          authorized_team: authorized-org-runner-managers
           repo: org-runner-manager-test
           token: ${{ secrets.TOKEN }}
