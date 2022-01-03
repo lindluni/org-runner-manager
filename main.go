@@ -110,11 +110,11 @@ func main() {
 	case "token-register":
 		githubactions.Infof("Creating registration token")
 		token := manager.createRegistrationToken()
-		manager.commentAndSucceed("Created registration token\n\nToken: %s\nExpiration: %s", token.GetToken(), token.GetExpiresAt().String())
+		manager.commentAndSucceed("Created registration token\n\nToken: %s\nExpiration: %s\n\nRun the following command to configure your runner:\n\n```\n./config.sh --url https://github.com/%s --token %s\n```", token.GetToken(), token.GetExpiresAt().String(), manager.org, token.GetToken())
 	case "token-remove":
 		githubactions.Infof("Creating removal token")
 		token := manager.createRemovalToken()
-		manager.commentAndSucceed("Created removal token\n\nToken: %s\nExpiration: %s", token.GetToken(), token.GetExpiresAt().String())
+		manager.commentAndSucceed("Created removed token\n\nToken: %s\nExpiration: %s\n\nRun the following command to configure your runner:\n\n```\n./config.sh --url https://github.com/%s --token %s\n```", token.GetToken(), token.GetExpiresAt().String(), manager.org, token.GetToken())
 	}
 }
 
