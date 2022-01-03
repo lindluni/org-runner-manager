@@ -1,3 +1,5 @@
+// TODO: Add log URL to failures
+
 package main
 
 import (
@@ -271,7 +273,7 @@ func (m *manager) verifyTeamExists() bool {
 		githubactions.Errorf("Unable to get team: %v", err)
 		return false
 	}
-	if team.GetPrivacy() != "private" {
+	if team.GetPrivacy() != "closed" {
 		m.commentAndFail("Team %s/%s is not private", m.org, m.team)
 	}
 	githubactions.Infof("Team %s/%s exists", m.org, m.team)
