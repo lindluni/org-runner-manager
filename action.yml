@@ -31,4 +31,4 @@ inputs:
     default: ${{ github.token }}
 runs:
   using: docker
-  image: btl5037/org-runner-manager:latest
+  image: docker://org-runner-manager:latest
