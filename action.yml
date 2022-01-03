@@ -1,0 +1,34 @@
+name: Organzation Runner Manager
+description: Manage the administration of organization runners via GitHub Actions
+author: "Brett Logan"
+inputs:
+  action:
+    description: GitHub token with admin rights
+    required: true
+    default: group-create
+  actor:
+    description: GitHub token with admin rights
+    required: true
+    default: ${{ github.actor }}
+  body:
+    description: The body of the newly created issue
+    required: true
+    default: ${{ toJSON(github.event.issue.body) }}
+  issue_number:
+    description: The GitHub issue number
+    required: true
+    default: ${{ github.event.issue.number }}
+  org:
+    description: The GitHub org containing the repo
+    required: true
+    default: ${{ github.repository_owner }}
+  repo:
+    description: The repo where the GitHub issue exists
+    required: true
+  token:
+    description: GitHub token with admin rights
+    required: true
+    default: ${{ github.token }}
+runs:
+  using: docker
+  image: btl5037/org-runner-manager:latest
