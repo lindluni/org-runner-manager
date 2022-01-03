@@ -1,0 +1,15 @@
+name: List Runner Group Contents
+on:
+  issues:
+    types: [ opened, edited ]
+jobs:
+  create:
+    if: ${{ contains(github.event.issue.title, '') }}
+    name: List Runner Group Contents
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: lindluni/org-runner-manager@main
+        with:
+          action: group-list
+          repo: org-runner-manager-test

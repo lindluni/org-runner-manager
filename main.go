@@ -376,13 +376,22 @@ func (m *manager) verifyRepoAssignedToTeam(repo string) {
 }
 
 func generateList(repos, runners []string) string {
-	builder := "```Repos:\n"
-	for _, repo := range repos {
-		builder += fmt.Sprintf("- %s\n", repo)
+	builder := "```\nRepos:\n"
+	if len(repos) == 0 {
+		builder += "None\n"
+	} else {
+		for _, repo := range repos {
+			builder += fmt.Sprintf("%s\n", repo)
+		}
 	}
+
 	builder += "\n\nRunners:\n"
-	for _, runner := range runners {
-		builder += fmt.Sprintf("- %s\n", runner)
+	if len(runners) == 0 {
+		builder += "None\n"
+	} else {
+		for _, runner := range runners {
+			builder += fmt.Sprintf("%s\n", runner)
+		}
 	}
 	builder += "```"
 	return builder
