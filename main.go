@@ -262,7 +262,7 @@ func (m *manager) verifyMaintainership() bool {
 
 func (m *manager) verifyTeamExists() bool {
 	githubactions.Infof("Verifying team %s/%s exists", m.org, m.team)
-	_, resp, err := m.client.Teams.GetTeamBySlug(m.ctx, m.org, m.team)
+	team, resp, err := m.client.Teams.GetTeamBySlug(m.ctx, m.org, m.team)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			githubactions.Errorf("%s/%s does not exist", m.org, m.team)
@@ -270,6 +270,9 @@ func (m *manager) verifyTeamExists() bool {
 		}
 		githubactions.Errorf("Unable to get team: %v", err)
 		return false
+	}
+	if team.GetPrivacy() != "private" {
+		m.commentAndFail("Team %s/%s is not private", m.org, m.team)
 	}
 	githubactions.Infof("Team %s/%s exists", m.org, m.team)
 	return true
