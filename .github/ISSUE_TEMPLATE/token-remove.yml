@@ -1,0 +1,31 @@
+name: Organization Runner Group - Create Organization Runner Removal Token
+description: Request to create a new organization runner removal token
+title: "Do Not Edit Title: Create Organization Runner Removal Token"
+labels: [ user-created ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please read before continuing**: This issue form is to request to create a new organization runner removal token.
+
+        **All of the fields in this form are required.** You must provide the following information:
+        - The slug of a GitHub team for which you are the maintainer of. This is not the same as your team name, you can navigate to the teams page and copy and paste the team name from the URL (this is the slug). For example, if your team name is `DevOps Team` then the slug is `devops-team` and can be copy and pasted from the teams page URL.
+
+        Once you submit this form, new organization runner removal token will be created commented back on this issue. You may use this token to pass to the `./config.sh` script when configuring a runner.
+  - type: checkboxes
+    id: acknowledge
+    attributes:
+      label: Acknowledge Instructions
+      description: Please acknowledge that you have read the above instructions
+      options:
+        - label: |
+            I acknowledge that I have read the above instructions
+          required: true
+  - type: input
+    id: teamslug
+    attributes:
+      label: Team
+      description: The canonical team slug for the GitHub team for which you are the maintainer of.
+      placeholder: devops-team
+    validations:
+      required: true

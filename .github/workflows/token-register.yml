@@ -1,0 +1,16 @@
+name: Create Runner Group
+on:
+  issues:
+    types: [ opened, edited ]
+jobs:
+  token-register:
+    if: ${{ contains(github.event.issue.title, 'Create Organization Runner Registration Token') }}
+    name: Create Runner Group
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: lindluni/org-runner-manager@main
+        with:
+          action: token-register
+          repo: org-runner-manager-test
+          token: ${{ secrets.TOKEN }}
