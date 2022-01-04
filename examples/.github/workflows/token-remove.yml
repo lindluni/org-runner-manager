@@ -1,4 +1,4 @@
-name: Create Removal Group
+name: Create Removal Token
 on:
   issues:
     types: [ opened, edited ]
