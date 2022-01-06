@@ -29,6 +29,7 @@ type manager struct {
 	repo           string
 	runnerGroup    string
 	runnerGroupID  int64
+	secrets        []string
 	team           string
 	workflowRunID  int64
 }
@@ -73,14 +74,17 @@ func main() {
 	if err != nil {
 		githubactions.Fatalf("Failed to retrieve team: %v", err)
 	}
+	manager.secrets = []string{manager.team, manager.runnerGroup}
 	manager.runnerGroup = fmt.Sprintf("ghm-%s", manager.team)
+
+	githubactions.AddMask(manager.runnerGroup)
 
 	if !manager.verifyAuthorization() {
 		githubactions.Fatalf("Authorization failed, user is not authorized to perform this actions")
 	}
 
 	if !manager.verifyTeamExists() {
-		manager.commentAndFail("Unable to verify team %s exists", manager.team)
+		manager.commentAndFail("Unable to verify team exists")
 	}
 
 	if !manager.verifyMaintainership() {
@@ -98,30 +102,30 @@ func main() {
 	githubactions.Infof("Executing action %s for %s/%s", action, manager.org, actor)
 	switch action {
 	case "group-create":
-		githubactions.Infof("Creating runner group %s", manager.runnerGroup)
+		githubactions.Infof("Creating runner group")
 		manager.createGroup()
-		manager.commentAndSucceed("Created runner group %s", manager.runnerGroup)
+		manager.commentAndSucceed("Created runner group. The name of your runner group is of the form `ghm-<team slug>`")
 	case "group-delete":
-		githubactions.Infof("Deleting runner group %s", manager.runnerGroup)
+		githubactions.Infof("Deleting runner group")
 		manager.deleteGroup()
-		manager.commentAndSucceed("Deleted runner group %s", manager.runnerGroup)
+		manager.commentAndSucceed("Deleted runner group")
 	case "group-list":
-		githubactions.Infof("Listing runner group contents for %s", manager.runnerGroup)
+		githubactions.Infof("Listing runner group contents")
 		repos, runners := manager.groupList()
 		list := generateList(repos, runners)
-		manager.commentAndSucceed("The following repos and runners are assigned to the runner group %s:\n\n%s", manager.runnerGroup, list)
+		manager.commentAndSucceed("The following repos and runners are assigned to the runner group:\n\n%s", list)
 	case "repos-add":
-		githubactions.Infof("Adding repos to runner group %s", manager.runnerGroup)
+		githubactions.Infof("Adding repos to runner group")
 		manager.addRepos()
-		manager.commentAndSucceed("Added repos to runner group %s", manager.runnerGroup)
+		manager.commentAndSucceed("Added repos to runner group")
 	case "repos-remove":
-		githubactions.Infof("Removing repos from runner group %s", manager.runnerGroup)
+		githubactions.Infof("Removing repos from runner group")
 		manager.removeRepos()
-		manager.commentAndSucceed("Removed repos from runner group %s", manager.runnerGroup)
+		manager.commentAndSucceed("Removed repos from runner group")
 	case "repos-set":
-		githubactions.Infof("Setting repos in runner group %s", manager.runnerGroup)
+		githubactions.Infof("Setting repos in runner group")
 		manager.setRepos()
-		manager.commentAndSucceed("Replaced repos in runner group %s", manager.runnerGroup)
+		manager.commentAndSucceed("Replaced repos in runner group")
 	case "token-register":
 		githubactions.Infof("Creating registration token")
 		token := manager.createRegistrationToken()
@@ -150,7 +154,7 @@ func (m *manager) deleteGroup() {
 	if err != nil {
 		m.commentAndFail("Unable to delete group: %v", err)
 	}
-	githubactions.Infof("Deleted group %s", m.runnerGroup)
+	githubactions.Infof("Deleted group")
 }
 
 func (m *manager) groupList() ([]string, []string) {
@@ -168,10 +172,10 @@ func (m *manager) addRepos() {
 	}
 
 	for name, id := range repos {
-		githubactions.Infof("Adding repo %s to group %s", name, m.runnerGroup)
+		githubactions.Infof("Adding repo %s to group")
 		_, err := m.client.Actions.AddRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, id)
 		if err != nil {
-			m.commentAndFail("Unable to add repo %d to group %s: %v", name, m.runnerGroup, err)
+			m.commentAndFail("Unable to add repo %d to group: %v", name, err)
 		}
 	}
 }
@@ -185,10 +189,10 @@ func (m *manager) removeRepos() {
 	}
 
 	for name, id := range repos {
-		githubactions.Infof("Removing repo %s from group %s", name, m.runnerGroup)
+		githubactions.Infof("Removing repo %s from group", name)
 		_, err := m.client.Actions.RemoveRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, id)
 		if err != nil {
-			m.commentAndFail("Unable to remove repo %s to group %s: %v", name, m.runnerGroup, err)
+			m.commentAndFail("Unable to remove repo %s to group: %v", name, err)
 		}
 	}
 }
@@ -202,10 +206,10 @@ func (m *manager) setRepos() {
 		repoIDs = append(repoIDs, id)
 	}
 
-	githubactions.Infof("Replacing existing repos for group %s with new repo set: [%s]", m.runnerGroup, strings.Join(repos[:], ", "))
+	githubactions.Infof("Replacing existing repos for group with new repo set: [%s]", strings.Join(repos[:], ", "))
 	_, err := m.client.Actions.SetRepositoryAccessRunnerGroup(m.ctx, m.org, m.runnerGroupID, github.SetRepoAccessRunnerGroupRequest{SelectedRepositoryIDs: repoIDs})
 	if err != nil {
-		m.commentAndFail("Unable to replace repos for group %s: %v", m.runnerGroup, err)
+		m.commentAndFail("Unable to replace repos for group: %v", err)
 	}
 }
 
@@ -251,44 +255,44 @@ func (m *manager) verifyAuthorization() bool {
 }
 
 func (m *manager) verifyMaintainership() bool {
-	githubactions.Infof("Verifying %s is a maintainer of the %s/%s team", m.actor, m.org, m.team)
+	githubactions.Infof("Verifying %s is a maintainer of the team")
 	membership, resp, err := m.client.Teams.GetTeamMembershipBySlug(m.ctx, m.org, m.team, m.actor)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			githubactions.Errorf("%s is not a member of the %s team", m.actor, m.team)
+			githubactions.Errorf("%s is not a member of the team", m.actor)
 			return false
 		}
 		githubactions.Errorf("Unable to get team membership for %s: %v", m.actor, err)
 		return false
 	}
 	if membership.GetRole() != "maintainer" {
-		githubactions.Errorf("%s is not a maintainer of the %s team", m.actor, m.team)
+		githubactions.Errorf("%s is not a maintainer of the team", m.actor)
 		return false
 	}
 	return true
 }
 
 func (m *manager) verifyTeamExists() bool {
-	githubactions.Infof("Verifying team %s/%s exists", m.org, m.team)
+	githubactions.Infof("Verifying team exists")
 	team, resp, err := m.client.Teams.GetTeamBySlug(m.ctx, m.org, m.team)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			githubactions.Errorf("%s/%s does not exist", m.org, m.team)
+			githubactions.Errorf("Team does not exist")
 			return false
 		}
 		githubactions.Errorf("Unable to get team: %v", err)
 		return false
 	}
-	githubactions.Infof("Verifying team %s/%s's privacy is set to secret", m.org, m.team)
+	githubactions.Infof("Verifying team privacy is set to secret")
 	if team.GetPrivacy() != "secret" {
-		m.commentAndFail("Team %s/%s is not private", m.org, m.team)
+		m.commentAndFail("Team is not private")
 	}
-	githubactions.Infof("Team %s/%s exists", m.org, m.team)
+	githubactions.Infof("Team exists")
 	return true
 }
 
 func (m *manager) retrieveRunnerGroupID() (int64, bool) {
-	githubactions.Infof("Searching for group ID for runner group %s", m.runnerGroup)
+	githubactions.Infof("Searching for group ID for runner group")
 	opts := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -317,7 +321,7 @@ func (m *manager) parseRepos() []string {
 	match = strings.TrimPrefix(match, "Repos")
 	match = strings.Trim(match, "\\t \\r \\n")
 	repos := strings.Split(match, ",")
-	repos = trimRepoNames(repos)
+	repos = m.trimRepoNames(repos)
 	return repos
 }
 
@@ -337,6 +341,7 @@ func (m *manager) parseTeam() string {
 	match := r.FindStringSubmatch(m.body)[0]
 	match = strings.TrimPrefix(match, "Team")
 	match = strings.Trim(match, "\\t \\r \\n")
+	githubactions.AddMask(match)
 	return match
 }
 
@@ -345,14 +350,17 @@ func (m *manager) parseTeamWithRepos() string {
 	match := r.FindStringSubmatch(m.body)[0]
 	match = strings.TrimPrefix(match, "Team")
 	match = strings.Trim(match, "\\t \\r \\n #")
+	githubactions.AddMask(match)
 	return match
 }
 
-func trimRepoNames(repos []string) []string {
+func (m *manager) trimRepoNames(repos []string) []string {
 	var trimmedRepos []string
 	for _, repo := range repos {
 		repo = strings.Trim(repo, "\t \r \n")
 		trimmedRepos = append(trimmedRepos, repo)
+		m.secrets = append(m.secrets, repo)
+		githubactions.AddMask(repo)
 	}
 	return trimmedRepos
 }
@@ -370,7 +378,7 @@ func (m *manager) retrieveRepoID(repoName string) int64 {
 }
 
 func (m *manager) retrieveRunnerGroupRunners() []string {
-	githubactions.Infof("Retrieving runners for group %s", m.runnerGroup)
+	githubactions.Infof("Retrieving runners for group")
 	opts := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -392,7 +400,7 @@ func (m *manager) retrieveRunnerGroupRunners() []string {
 }
 
 func (m *manager) retrieveRunnerGroupRepos() []string {
-	githubactions.Infof("Retrieving repos for runner group %s", m.runnerGroup)
+	githubactions.Infof("Retrieving repos for runner group")
 	opts := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -414,7 +422,7 @@ func (m *manager) retrieveRunnerGroupRepos() []string {
 }
 
 func (m *manager) verifyRepoAssignedToTeam(name string) {
-	githubactions.Infof("Verifying repo %s is assigned to team %s", name, m.team)
+	githubactions.Infof("Verifying repo %s is assigned to team")
 	opts := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -425,7 +433,7 @@ func (m *manager) verifyRepoAssignedToTeam(name string) {
 		}
 		for _, repo := range repos {
 			if repo.GetName() == name {
-				githubactions.Infof("Repo %s is assigned to team %s", name, m.team)
+				githubactions.Infof("Repo %s is assigned to team", name)
 				return
 			}
 		}
@@ -434,7 +442,7 @@ func (m *manager) verifyRepoAssignedToTeam(name string) {
 		}
 		opts.Page = resp.NextPage
 	}
-	m.commentAndFail("Repo %s is not assigned to team %s", name, m.team)
+	m.commentAndFail("Repo %s is not assigned to team", name)
 }
 
 func generateList(repos, runners []string) string {
@@ -461,6 +469,7 @@ func generateList(repos, runners []string) string {
 
 func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
+	formattedMessage = redact(formattedMessage)
 	githubactions.Infof("Sending message: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
@@ -478,6 +487,7 @@ func (m *manager) commentAndSucceed(message string, args ...interface{}) {
 func (m *manager) commentAndFail(message string, args ...interface{}) {
 	formattedMessage := fmt.Sprintf(message, args...)
 	formattedMessage = formattedMessage + fmt.Sprintf("\n\n[View Failure Log Here](https://github.com/%s/%s/actions/runs/%d)", m.org, m.repo, m.workflowRunID)
+	formattedMessage = redact(formattedMessage)
 	githubactions.Warningf("Sending failure notification: %s", formattedMessage)
 	_, resp, err := m.client.Issues.CreateComment(m.ctx, m.org, m.repo, m.issueNumber, &github.IssueComment{
 		Body: &formattedMessage,
@@ -499,5 +509,11 @@ func (m *manager) closeIssue() {
 	})
 	if err != nil {
 		githubactions.Errorf("Unable to close issue: %v", err)
+	}
+}
+
+func redact(text string) string {
+	for _, word := range m.secrets {
+		text = strings.ReplaceAll(text, word, "****")
 	}
 }
